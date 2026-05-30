@@ -41,10 +41,12 @@ function SobrePage() {
           <li><strong>Licitação:</strong> processo legal de contratação pelo poder público.</li>
         </ul>
 
-        <h2 className="mt-8 text-xl font-semibold">Aviso</h2>
+        <h2 className="mt-8 text-xl font-semibold">Origem dos Dados</h2>
         <p className="mt-2 text-muted-foreground">
-          Esta é uma versão demonstrativa com dados fictícios para fins de prototipagem. A arquitetura do projeto
-          foi pensada para futura integração com APIs oficiais da Prefeitura de Campina Grande.
+          Este portal está integrado diretamente ao banco de dados consolidado pelo scraper oficial
+          da Prefeitura de Campina Grande/PB. Os dados exibidos de licitações, despesas de saúde, educação, frota, 
+          diárias, publicidade, convênios e cruzamentos de risco representam transações reais obtidas a partir 
+          das consultas públicas governamentais e de auditorias estatísticas cognitivas suportadas por Inteligência Artificial.
         </p>
       </article>
     </div>

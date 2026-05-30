@@ -26,7 +26,7 @@ function LicitacoesPage() {
   const [empresa, setEmpresa] = useState("Todas");
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/licitacoes")
+    fetch("http://localhost:8000/api/licitacoes")
       .then(res => res.json())
       .then(json => {
         if (json.licitacoes) setLicList(json.licitacoes);

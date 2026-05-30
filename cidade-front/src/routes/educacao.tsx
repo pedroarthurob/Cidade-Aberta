@@ -24,7 +24,7 @@ function EducacaoPage() {
   const [evolList, setEvolList] = useState(evolucaoEducacao);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/summary")
+    fetch("http://localhost:8000/api/summary")
       .then(res => res.json())
       .then(json => {
         if (json.kpi && json.kpi.educacao) {
@@ -33,7 +33,7 @@ function EducacaoPage() {
       })
       .catch(err => console.log("Failed to fetch educacao summary:", err));
 
-    fetch("http://127.0.0.1:8000/api/educacao")
+    fetch("http://localhost:8000/api/educacao")
       .then(res => res.json())
       .then(json => {
         if (json.investimentoEscolas) setEscolasList(json.investimentoEscolas);

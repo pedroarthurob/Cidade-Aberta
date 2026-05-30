@@ -22,7 +22,7 @@ function LicitacaoDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`http://127.0.0.1:8000/api/licitacoes/${encodeURIComponent(id)}`)
+    fetch(`http://localhost:8000/api/licitacoes/${encodeURIComponent(id)}`)
       .then(res => res.json())
       .then(json => {
         if (json && json.id) setLic(json);

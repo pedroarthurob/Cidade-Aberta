@@ -26,7 +26,7 @@ function SaudePage() {
   const [evolList, setEvolList] = useState(evolucaoSaude);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/summary")
+    fetch("http://localhost:8000/api/summary")
       .then(res => res.json())
       .then(json => {
         if (json.kpi && json.kpi.saude) {
@@ -35,7 +35,7 @@ function SaudePage() {
       })
       .catch(err => console.log("Failed to fetch saude summary:", err));
 
-    fetch("http://127.0.0.1:8000/api/saude")
+    fetch("http://localhost:8000/api/saude")
       .then(res => res.json())
       .then(json => {
         if (json.unidadesSaude) setUnidadesList(json.unidadesSaude);

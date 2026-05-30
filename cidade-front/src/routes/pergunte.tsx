@@ -36,7 +36,7 @@ function PerguntePage() {
     setLoading(true);
     setResposta(null);
     
-    fetch(`http://127.0.0.1:8000/api/chat?prompt=${encodeURIComponent(q)}`)
+    fetch(`http://localhost:8000/api/chat?prompt=${encodeURIComponent(q)}`)
       .then(res => res.json())
       .then(json => {
         setResposta(json.result || json.message || "Sem resposta do servidor.");
@@ -55,12 +55,12 @@ function PerguntePage() {
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
       <PageHeader
         title="Pergunte aos Dados"
-        description="Em breve: uma IA capaz de responder perguntas em linguagem natural sobre os gastos públicos."
+        description="Audite em tempo real as contas públicas de Campina Grande com o Assistente Inteligente Cidadão."
       />
 
       <div className="mt-8 rounded-2xl border border-border bg-gradient-to-br from-primary-soft to-card p-6 shadow-sm">
         <div className="flex items-center gap-2 text-sm text-primary">
-          <Sparkles className="h-4 w-4" /> Assistente Cidadão · prévia
+          <Sparkles className="h-4 w-4" /> Assistente Cidadão Inteligente
         </div>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <input

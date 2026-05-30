@@ -19,7 +19,7 @@ function EmpresasPage() {
   const [empList, setEmpList] = useState(empresas);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/empresas")
+    fetch("http://localhost:8000/api/empresas")
       .then(res => res.json())
       .then(json => {
         if (json.empresas) setEmpList(json.empresas);

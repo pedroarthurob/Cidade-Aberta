@@ -45,7 +45,7 @@ function EmpresaDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`http://127.0.0.1:8000/api/empresas/${encodeURIComponent(id)}`)
+    fetch(`http://localhost:8000/api/empresas/${encodeURIComponent(id)}`)
       .then(res => res.json())
       .then(json => {
         if (json && json.emp) {

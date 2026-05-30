@@ -68,63 +68,63 @@ function Dashboard() {
   const [frotaList, setFrotaList] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/summary")
+    fetch("http://localhost:8000/api/summary")
       .then(res => res.json())
       .then(json => {
         if (json.orcamento) setOrc(json.orcamento);
       })
       .catch(err => console.log("Failed to fetch summary orcamento:", err));
 
-    fetch("http://127.0.0.1:8000/api/categories")
+    fetch("http://localhost:8000/api/categories")
       .then(res => res.json())
       .then(json => {
         if (Array.isArray(json)) setCats(json);
       })
       .catch(err => console.log("Failed to fetch categories:", err));
 
-    fetch("http://127.0.0.1:8000/api/secretarias")
+    fetch("http://localhost:8000/api/secretarias")
       .then(res => res.json())
       .then(json => {
         if (Array.isArray(json)) setSecs(json);
       })
       .catch(err => console.log("Failed to fetch secretarias:", err));
 
-    fetch("http://127.0.0.1:8000/api/auditoria/contratacoes-diretas")
+    fetch("http://localhost:8000/api/auditoria/contratacoes-diretas")
       .then(res => res.json())
       .then(json => {
         if (json && json.direct_ranking) setDirectProc(json);
       })
       .catch(err => console.log("Failed to fetch direct procurement:", err));
 
-    fetch("http://127.0.0.1:8000/api/auditoria/diarias")
+    fetch("http://localhost:8000/api/auditoria/diarias")
       .then(res => res.json())
       .then(json => {
         if (json && json.diarias) setDiariasList(json.diarias);
       })
       .catch(err => console.log("Failed to fetch diarias:", err));
 
-    fetch("http://127.0.0.1:8000/api/auditoria/cruzamentos")
+    fetch("http://localhost:8000/api/auditoria/cruzamentos")
       .then(res => res.json())
       .then(json => {
         if (json && json.active_debt) setCrossings(json);
       })
       .catch(err => console.log("Failed to fetch crossings:", err));
 
-    fetch("http://127.0.0.1:8000/api/auditoria/convenios")
+    fetch("http://localhost:8000/api/auditoria/convenios")
       .then(res => res.json())
       .then(json => {
         if (json && json.convenios) setConveniosList(json.convenios);
       })
       .catch(err => console.log("Failed to fetch convenios:", err));
 
-    fetch("http://127.0.0.1:8000/api/auditoria/emendas")
+    fetch("http://localhost:8000/api/auditoria/emendas")
       .then(res => res.json())
       .then(json => {
         if (json && json.emendas) setEmendasList(json.emendas);
       })
       .catch(err => console.log("Failed to fetch emendas:", err));
 
-    fetch("http://127.0.0.1:8000/api/auditoria/frota")
+    fetch("http://localhost:8000/api/auditoria/frota")
       .then(res => res.json())
       .then(json => {
         if (json && json.frota) setFrotaList(json.frota);

@@ -24,7 +24,7 @@ function ObrasPage() {
   const [empresa, setEmpresa] = useState("Todas");
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/obras")
+    fetch("http://localhost:8000/api/obras")
       .then(res => res.json())
       .then(json => {
         if (json.obras) setObrasList(json.obras);

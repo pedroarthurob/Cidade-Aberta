@@ -242,7 +242,36 @@ def get_saude():
             {"unidade": "Fundo Municipal de Saúde", "valor": 248500000, "atendimentos": 45000},
             {"unidade": "IPSEM - Instituto de Previdência", "valor": 48000000, "atendimentos": 22000}
         ]
-    evol = [{"mes": m, "valor": v} for m, v in zip(["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"], [12000000, 15000000, 18000000, 14000000, 22000000, 25000000])]
+    
+    monthly_query = """
+        SELECT 
+            CASE SUBSTR(date_emission, 6, 2)
+                WHEN '01' THEN 'Jan'
+                WHEN '02' THEN 'Fev'
+                WHEN '03' THEN 'Mar'
+                WHEN '04' THEN 'Abr'
+                WHEN '05' THEN 'Mai'
+                WHEN '06' THEN 'Jun'
+                WHEN '07' THEN 'Jul'
+                WHEN '08' THEN 'Ago'
+                WHEN '09' THEN 'Set'
+                WHEN '10' THEN 'Out'
+                WHEN '11' THEN 'Nov'
+                WHEN '12' THEN 'Dez'
+                ELSE 'Outro'
+            END AS mes,
+            SUM(amount_pago) AS valor
+        FROM empenhos
+        WHERE organ_code IN ('10300', '20100')
+        GROUP BY SUBSTR(date_emission, 6, 2)
+        ORDER BY SUBSTR(date_emission, 6, 2) ASC
+    """
+    evol_rows = make_query(monthly_query)
+    if evol_rows:
+        evol = evol_rows
+    else:
+        evol = [{"mes": m, "valor": v} for m, v in zip(["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"], [12000000, 15000000, 18000000, 14000000, 22000000, 25000000])]
+        
     return {"unidadesSaude": rows, "evolucaoSaude": evol}
 
 @app.get("/api/educacao")
@@ -263,7 +292,36 @@ def get_educacao():
         rows = [
             {"escola": "Secretaria de Educação (CAIC)", "valor": 312700000, "alunos": 25000}
         ]
-    evol = [{"mes": m, "valor": v} for m, v in zip(["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"], [8000000, 10000000, 12000000, 9000000, 15000000, 18000000])]
+        
+    monthly_query = """
+        SELECT 
+            CASE SUBSTR(date_emission, 6, 2)
+                WHEN '01' THEN 'Jan'
+                WHEN '02' THEN 'Fev'
+                WHEN '03' THEN 'Mar'
+                WHEN '04' THEN 'Abr'
+                WHEN '05' THEN 'Mai'
+                WHEN '06' THEN 'Jun'
+                WHEN '07' THEN 'Jul'
+                WHEN '08' THEN 'Ago'
+                WHEN '09' THEN 'Set'
+                WHEN '10' THEN 'Out'
+                WHEN '11' THEN 'Nov'
+                WHEN '12' THEN 'Dez'
+                ELSE 'Outro'
+            END AS mes,
+            SUM(amount_pago) AS valor
+        FROM empenhos
+        WHERE organ_code = '10400'
+        GROUP BY SUBSTR(date_emission, 6, 2)
+        ORDER BY SUBSTR(date_emission, 6, 2) ASC
+    """
+    evol_rows = make_query(monthly_query)
+    if evol_rows:
+        evol = evol_rows
+    else:
+        evol = [{"mes": m, "valor": v} for m, v in zip(["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"], [8000000, 10000000, 12000000, 9000000, 15000000, 18000000])]
+        
     return {"investimentoEscolas": rows, "evolucaoEducacao": evol}
 
 @app.get("/api/licitacoes")

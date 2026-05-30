@@ -33,21 +33,21 @@ function Home() {
   const [warnings, setWarnings] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/summary")
+    fetch("http://localhost:8000/api/summary")
       .then(res => res.json())
       .then(json => {
         if (json.kpi) setKpis(json.kpi);
       })
       .catch(err => console.log("Failed to fetch summary:", err));
 
-    fetch("http://127.0.0.1:8000/api/categories")
+    fetch("http://localhost:8000/api/categories")
       .then(res => res.json())
       .then(json => {
         if (Array.isArray(json)) setCats(json);
       })
       .catch(err => console.log("Failed to fetch categories:", err));
 
-    fetch("http://127.0.0.1:8000/api/warnings")
+    fetch("http://localhost:8000/api/warnings")
       .then(res => res.json())
       .then(json => {
         if (json.warnings) setWarnings(json.warnings);
