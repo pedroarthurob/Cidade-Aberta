@@ -8,8 +8,10 @@ import sys
 # Import our database module
 from db import (
     get_connection, init_db, save_institution, save_organ,
-    save_creditor, save_expense_element, save_empenho, save_movement
+    save_creditor, save_expense_element, save_empenho, save_movement,
+    save_scraper_error
 )
+
 
 # Configure logging to show progress beautifully
 logging.basicConfig(
@@ -149,10 +151,15 @@ class CampinaGrandeScraper:
             rows = rows[:limit_institutions]
             
         for inst_row in rows:
-            inst_id = int(inst_row["id"])
-            cell = inst_row["cell"]
-            inst_name = cell[0]
-            
+            try:
+                inst_id = int(inst_row["id"])
+                cell = inst_row["cell"]
+                inst_name = cell[0]
+            except Exception as e:
+                logger.warning(f"Error parsing institution row cell data: {e}. Skipping institution.")
+                save_scraper_error(db_conn, "institutions", json.dumps(inst_row), str(e), f"Year: {self.year}")
+                continue
+                
             logger.info(f"[*] Scraping Institution ID {inst_id}: '{inst_name}'")
             save_institution(db_conn, inst_id, inst_name)
             
@@ -196,10 +203,15 @@ class CampinaGrandeScraper:
                 organs_rows = organs_rows[:limit_organs]
                 
             for org_row in organs_rows:
-                org_cell = org_row["cell"]
-                org_name = org_cell[0]
-                org_code = org_cell[5] # hidden codorgao column
-                
+                try:
+                    org_cell = org_row["cell"]
+                    org_name = org_cell[0]
+                    org_code = org_cell[5] # hidden codorgao column
+                except Exception as e:
+                    logger.warning(f"  Error parsing organ row cell data: {e}. Skipping organ.")
+                    save_scraper_error(db_conn, "organs", json.dumps(org_row), str(e), f"Inst: {inst_id}")
+                    continue
+                    
                 logger.info(f"  [-] Scraping Organ Code {org_code}: '{org_name}'")
                 save_organ(db_conn, org_code, org_name, inst_id)
                 db_conn.commit()
@@ -245,11 +257,16 @@ class CampinaGrandeScraper:
                     el_rows = el_rows[:limit_elements]
                     
                 for el_row in el_rows:
-                    el_cell = el_row["cell"]
-                    el_group = el_cell[0]
-                    el_name = el_cell[1]
-                    el_code = el_cell[6] # hidden codcon column
-                    
+                    try:
+                        el_cell = el_row["cell"]
+                        el_group = el_cell[0]
+                        el_name = el_cell[1]
+                        el_code = el_cell[6] # hidden codcon column
+                    except Exception as e:
+                        logger.warning(f"    Error parsing expense element row cell: {e}. Skipping element.")
+                        save_scraper_error(db_conn, "expense_elements", json.dumps(el_row), str(e), f"Inst: {inst_id}, Organ: {org_code}")
+                        continue
+                        
                     logger.info(f"    [+] Expense Element Code {el_code}: '{el_name}'")
                     save_expense_element(db_conn, el_code, el_group, el_name, el_code)
                     db_conn.commit()
@@ -296,11 +313,16 @@ class CampinaGrandeScraper:
                         cred_rows = cred_rows[:limit_credores]
                         
                     for cred_row in cred_rows:
-                        cred_id = cred_row["id"]
-                        cred_cell = cred_row["cell"]
-                        cred_cpf = cred_cell[0]
-                        cred_nome = cred_cell[1]
-                        
+                        try:
+                            cred_id = cred_row["id"]
+                            cred_cell = cred_row["cell"]
+                            cred_cpf = cred_cell[0]
+                            cred_nome = cred_cell[1]
+                        except Exception as e:
+                            logger.warning(f"      Error parsing creditor row cell: {e}. Skipping creditor.")
+                            save_scraper_error(db_conn, "creditors", json.dumps(cred_row), str(e), f"Inst: {inst_id}, Organ: {org_code}, Element: {el_code}")
+                            continue
+                            
                         logger.info(f"      [*] Creditor ID {cred_id}: '{cred_nome}'")
                         save_creditor(db_conn, cred_id, cred_cpf, cred_nome)
                         db_conn.commit()
@@ -347,176 +369,277 @@ class CampinaGrandeScraper:
                             emp_rows = emp_rows[:limit_empenhos]
                             
                         for emp_row in emp_rows:
-                            emp_id = emp_row["id"]
-                            emp_cell = emp_row["cell"]
-                            emp_human_code = emp_cell[0] # human readable code (e.g. 2934 / 2022)
-                            emp_date = emp_cell[7]       # YYYY-MM-DD
-                            
-                            logger.info(f"        [-] Empenho ID {emp_id}: '{emp_human_code}' ({emp_date})")
-                            
-                            # --- LEVEL 8: MOVE-MENTS & BUDGET ALLOCATIONS ---
-                            # Click row to enter Level 8
-                            hist_8 = hist_7 + [{
-                                "codempenho": emp_human_code,
-                                "funcao_descricao": emp_cell[1],
-                                "subfuncao_descricao": emp_cell[2],
-                                "programa_descricao": emp_cell[3],
-                                "projeto_descricao": emp_cell[4],
-                                "planoconta_descricao": emp_cell[5],
-                                "recurso_descricao": emp_cell[6],
-                                "dataemissao": emp_date,
-                                "valor_empenhado": emp_cell[8],
-                                "valor_anulado": emp_cell[9],
-                                "valor_liquidado": emp_cell[10],
-                                "valor_pago": emp_cell[11],
-                                "descricao": f"EMPENHO : {emp_id}"
-                            }]
-                            
-                            self._post_load_link(view_name="empenhos", nivel=8,
-                                                 extra_params={'iInstituicao': str(inst_id), 'iOrgao': org_code, 'iElemento': el_code, 'iCredor': cred_id, 'iEmpenho': emp_id},
-                                                 historico=hist_8)
-                            
-                            # Query Detailed Movements & Allocations
-                            detail_params = emp_params.copy()
-                            detail_params.update({
-                                "sViewAtual": "empenhos_movimentacoes",
-                                "iNivel": "8",
-                                "iEmpenho": emp_id,
-                                "aHistorico": hist_8
-                            })
-                            
-                            grid_params_det = {
-                                'aParametros': json.dumps(detail_params),
-                                'page': '1',
-                                'rows': '100',
-                                'sidx': 'data',
-                                'sord': 'asc'
-                            }
-                            
-                            # 1. Fetch budget allocation code details
-                            r_alloc = self.session.post(f"{BASE_URL}/api/despesas/getDotacaoEmpenho", data=grid_params_det, headers=self.headers, timeout=15)
-                            r_alloc.raise_for_status()
-                            alloc_rows = r_alloc.json().get("rows", [])
-                            
-                            # Map allocation codes
-                            alloc_map = {}
-                            for alloc in alloc_rows:
-                                cell_data = alloc["cell"]
-                                label = cell_data[0].lower().replace(" ", "").replace("/", "").replace("-", "")
-                                code = cell_data[1]
-                                name = cell_data[2]
-                                alloc_map[label] = {"code": code, "name": name}
-                            
-                            # Extract resolved attributes
-                            unit_code = alloc_map.get("unidade", {}).get("code", "")
-                            unit_name = alloc_map.get("unidade", {}).get("name", "")
-                            func_code = alloc_map.get("função", {}).get("code", "")
-                            func_name = alloc_map.get("função", {}).get("name", "")
-                            subfunc_code = alloc_map.get("subfunção", {}).get("code", "")
-                            subfunc_name = alloc_map.get("subfunção", {}).get("name", "")
-                            prog_code = alloc_map.get("programa", {}).get("code", "")
-                            prog_name = alloc_map.get("programa", {}).get("name", "")
-                            proj_code = alloc_map.get("projetoatividade", {}).get("code", "")
-                            proj_name = alloc_map.get("projetoatividade", {}).get("name", "")
-                            res_code = alloc_map.get("recurso", {}).get("code", "")
-                            res_name = alloc_map.get("recurso", {}).get("name", "")
-                            
-                            # Assemble the complete detailed Empenho record
-                            empenho_db_data = {
-                                "id": emp_id,
-                                "code": emp_human_code,
-                                "exercicio": self.year,
-                                "institution_id": inst_id,
-                                "organ_code": org_code,
-                                "unit_code": unit_code,
-                                "unit_name": unit_name,
-                                "function_code": func_code,
-                                "function_name": func_name,
-                                "subfunction_code": subfunc_code,
-                                "subfunction_name": subfunc_name,
-                                "program_code": prog_code,
-                                "program_name": prog_name,
-                                "project_code": proj_code,
-                                "project_name": proj_name,
-                                "element_code": el_code,
-                                "creditor_id": cred_id,
-                                "resource_code": res_code,
-                                "resource_name": res_name,
-                                "date_emission": emp_date,
-                                "amount_empenhado": to_float(emp_cell[8]),
-                                "amount_anulado": to_float(emp_cell[9]),
-                                "amount_liquidado": to_float(emp_cell[10]),
-                                "amount_pago": to_float(emp_cell[11])
-                            }
-                            
-                            save_empenho(db_conn, empenho_db_data)
-                            db_conn.commit()
-                            
-                            # 2. Fetch movements (Empenho, Liquidação, Pagamentos ledger)
-                            r_mov = self.session.post(f"{BASE_URL}/api/despesas/getMovimentacoesEmpenhos", data=grid_params_det, headers=self.headers, timeout=15)
-                            r_mov.raise_for_status()
-                            mov_rows = r_mov.json().get("rows", [])
-                            
-                            for mov_row in mov_rows:
-                                mov_id = mov_row["id"]
-                                mov_cell = mov_row["cell"]
-                                mov_date = mov_cell[0]
-                                mov_type = mov_cell[1]
-                                mov_amount = to_float(mov_cell[2])
-                                mov_type_code = int(mov_cell[3])
+                            try:
+                                try:
+                                    emp_id = emp_row["id"]
+                                    emp_cell = emp_row["cell"]
+                                    emp_human_code = emp_cell[0] # human readable code (e.g. 2934 / 2022)
+                                    emp_date = emp_cell[7]       # YYYY-MM-DD
+                                except Exception as e:
+                                    logger.warning(f"        Error parsing empenho row cell: {e}. Skipping empenho.")
+                                    save_scraper_error(db_conn, "empenhos", json.dumps(emp_row), str(e), f"Inst: {inst_id}, Organ: {org_code}, Element: {el_code}, Creditor: {cred_id}")
+                                    continue
+                                    
+                                logger.info(f"        [-] Empenho ID {emp_id}: '{emp_human_code}' ({emp_date})")
                                 
-                                logger.info(f"          [Movement] {mov_date} | {mov_type:<10} | R$ {mov_amount:,.2f}")
-                                save_movement(db_conn, mov_id, emp_id, mov_date, mov_type, mov_amount, mov_type_code)
-                            db_conn.commit()
-                            
-                            # Sleep briefly to avoid putting too much load on the city server
-                            time.sleep(0.1)
+                                # --- LEVEL 8: MOVE-MENTS & BUDGET ALLOCATIONS ---
+                                # Click row to enter Level 8
+                                hist_8 = hist_7 + [{
+                                    "codempenho": emp_human_code,
+                                    "funcao_descricao": emp_cell[1],
+                                    "subfuncao_descricao": emp_cell[2],
+                                    "programa_descricao": emp_cell[3],
+                                    "projeto_descricao": emp_cell[4],
+                                    "planoconta_descricao": emp_cell[5],
+                                    "recurso_descricao": emp_cell[6],
+                                    "dataemissao": emp_date,
+                                    "valor_empenhado": emp_cell[8],
+                                    "valor_anulado": emp_cell[9],
+                                    "valor_liquidado": emp_cell[10],
+                                    "valor_pago": emp_cell[11],
+                                    "descricao": f"EMPENHO : {emp_id}"
+                                }]
+                                
+                                self._post_load_link(view_name="empenhos", nivel=8,
+                                                     extra_params={'iInstituicao': str(inst_id), 'iOrgao': org_code, 'iElemento': el_code, 'iCredor': cred_id, 'iEmpenho': emp_id},
+                                                     historico=hist_8)
+                                
+                                # Query Detailed Movements & Allocations
+                                detail_params = emp_params.copy()
+                                detail_params.update({
+                                    "sViewAtual": "empenhos_movimentacoes",
+                                    "iNivel": "8",
+                                    "iEmpenho": emp_id,
+                                    "aHistorico": hist_8
+                                })
+                                
+                                grid_params_det = {
+                                    'aParametros': json.dumps(detail_params),
+                                    'page': '1',
+                                    'rows': '100',
+                                    'sidx': 'data',
+                                    'sord': 'asc'
+                                }
+                                
+                                # 1. Fetch budget allocation code details
+                                r_alloc = self.session.post(f"{BASE_URL}/api/despesas/getDotacaoEmpenho", data=grid_params_det, headers=self.headers, timeout=15)
+                                r_alloc.raise_for_status()
+                                alloc_rows = r_alloc.json().get("rows", [])
+                                
+                                # Map allocation codes
+                                alloc_map = {}
+                                for alloc in alloc_rows:
+                                    cell_data = alloc["cell"]
+                                    label = cell_data[0].lower().replace(" ", "").replace("/", "").replace("-", "")
+                                    code = cell_data[1]
+                                    name = cell_data[2]
+                                    alloc_map[label] = {"code": code, "name": name}
+                                
+                                # Extract resolved attributes
+                                unit_code = alloc_map.get("unidade", {}).get("code", "")
+                                unit_name = alloc_map.get("unidade", {}).get("name", "")
+                                func_code = alloc_map.get("função", {}).get("code", "")
+                                func_name = alloc_map.get("função", {}).get("name", "")
+                                subfunc_code = alloc_map.get("subfunção", {}).get("code", "")
+                                subfunc_name = alloc_map.get("subfunção", {}).get("name", "")
+                                prog_code = alloc_map.get("programa", {}).get("code", "")
+                                prog_name = alloc_map.get("programa", {}).get("name", "")
+                                proj_code = alloc_map.get("projetoatividade", {}).get("code", "")
+                                proj_name = alloc_map.get("projetoatividade", {}).get("name", "")
+                                res_code = alloc_map.get("recurso", {}).get("code", "")
+                                res_name = alloc_map.get("recurso", {}).get("name", "")
+                                
+                                # Assemble the complete detailed Empenho record
+                                empenho_db_data = {
+                                    "id": emp_id,
+                                    "code": emp_human_code,
+                                    "exercicio": self.year,
+                                    "institution_id": inst_id,
+                                    "organ_code": org_code,
+                                    "unit_code": unit_code,
+                                    "unit_name": unit_name,
+                                    "function_code": func_code,
+                                    "function_name": func_name,
+                                    "subfunction_code": subfunc_code,
+                                    "subfunction_name": subfunc_name,
+                                    "program_code": prog_code,
+                                    "program_name": prog_name,
+                                    "project_code": proj_code,
+                                    "project_name": proj_name,
+                                    "element_code": el_code,
+                                    "creditor_id": cred_id,
+                                    "resource_code": res_code,
+                                    "resource_name": res_name,
+                                    "date_emission": emp_date,
+                                    "amount_empenhado": to_float(emp_cell[8]),
+                                    "amount_anulado": to_float(emp_cell[9]),
+                                    "amount_liquidado": to_float(emp_cell[10]),
+                                    "amount_pago": to_float(emp_cell[11])
+                                }
+                                
+                                save_empenho(db_conn, empenho_db_data)
+                                db_conn.commit()
+                                
+                                # 2. Fetch movements (Empenho, Liquidação, Pagamentos ledger)
+                                r_mov = self.session.post(f"{BASE_URL}/api/despesas/getMovimentacoesEmpenhos", data=grid_params_det, headers=self.headers, timeout=15)
+                                r_mov.raise_for_status()
+                                mov_rows = r_mov.json().get("rows", [])
+                                
+                                for mov_row in mov_rows:
+                                    mov_id = mov_row["id"]
+                                    mov_cell = mov_row["cell"]
+                                    mov_date = mov_cell[0]
+                                    mov_type = mov_cell[1]
+                                    mov_amount = to_float(mov_cell[2])
+                                    mov_type_code = int(mov_cell[3])
+                                    
+                                    logger.info(f"          [Movement] {mov_date} | {mov_type:<10} | R$ {mov_amount:,.2f}")
+                                    save_movement(db_conn, mov_id, emp_id, mov_date, mov_type, mov_amount, mov_type_code)
+                                db_conn.commit()
+                                
+                                # Sleep briefly to avoid putting too much load on the city server
+                                time.sleep(0.1)
+                            except Exception as e:
+                                logger.warning(f"        Error processing/saving empenho ID {emp_row.get('id', 'unknown')}: {e}. Skipping.")
+                                save_scraper_error(
+                                    db_conn, 
+                                    "empenhos", 
+                                    json.dumps(emp_row), 
+                                    str(e), 
+                                    f"Inst: {inst_id}, Organ: {org_code}, Element: {el_code}, Creditor: {cred_id}"
+                                )
+                                continue
 
 if __name__ == "__main__":
-    logger.info("Initializing SQLite database...")
+    import argparse
+    from db import init_db, get_connection, DATABASE_FILE
+    
+    parser = argparse.ArgumentParser(
+        description="Capturador de dados (Scraper) do Portal de Transparência de Campina Grande."
+    )
+    parser.add_argument(
+        "--year", "-y",
+        type=int,
+        default=2022,
+        help="Ano fiscal para captura (padrão: 2022). Nota: o portal oficial só disponibiliza dados para 2020, 2021 e 2022."
+    )
+    parser.add_argument(
+        "--quick", "-q",
+        action="store_true",
+        help="Executa uma captura rápida limitada (dry-run) para testar a conexão e o funcionamento."
+    )
+    parser.add_argument(
+        "--wipe", "-w",
+        action="store_true",
+        help="Limpa/apaga o banco de dados antes de iniciar, para remover dados simulados ou capturas anteriores."
+    )
+    parser.add_argument(
+        "--seed", "-s",
+        action="store_true",
+        help="Popula o banco de dados com os dados simulados de teste (sandbox) em vez de capturar dados reais."
+    )
+    
+    args = parser.parse_args()
+    
+    # 1. Trata limpeza do banco de dados (--wipe)
+    if args.wipe:
+        if os.path.exists(DATABASE_FILE):
+            logger.info(f"🧹 Apagando banco de dados existente em {DATABASE_FILE} para iniciar do zero...")
+            try:
+                os.remove(DATABASE_FILE)
+                logger.info("✅ Banco de dados removido com sucesso.")
+            except Exception as e:
+                logger.error(f"⚠️ Erro ao remover banco de dados: {e}")
+        else:
+            logger.info("🧹 Nenhum banco de dados existente para apagar.")
+            
+    # Inicializa/garante a existência das tabelas
     init_db()
     
-    # Establish database connection
+    # 2. Trata semeadura (--seed)
+    if args.seed:
+        logger.info("🌱 Populando banco de dados com dados simulados/sandbox para testes...")
+        sys.path.append(os.path.join(os.path.dirname(__file__), "../tests"))
+        try:
+            from seed_analytics import seed_db
+            seed_db()
+            logger.info("✅ Banco de dados populado com dados de teste com sucesso!")
+        except Exception as e:
+            logger.error(f"❌ Erro ao semear o banco de dados: {e}")
+        sys.exit(0)
+        
+    # 3. Trata Captura Real
+    ANO_FISCAL = args.year
+    DATA_INICIO = "01/01"
+    DATA_FIM = "31/12"
+    
+    # Validação amigável do ano fiscal do portal
+    ANOS_SUPORTADOS = [2020, 2021, 2022]
+    if ANO_FISCAL not in ANOS_SUPORTADOS:
+        logger.warning(
+            f"⚠️ ATENÇÃO: O portal oficial de Campina Grande hospeda apenas dados de {ANOS_SUPORTADOS}.\n"
+            f"   Tentar capturar o ano {ANO_FISCAL} provavelmente retornará 0 registros."
+        )
+        
     db_conn = get_connection()
     
-    # We do a fast "dry run" with small limits so it demonstrates full functionality in a few seconds
-    logger.info("Running a fast limited scrape dry-run for 2022 data...")
-    scraper = CampinaGrandeScraper(year=2022, start_date="01/01", end_date="31/12")
-    
+    if args.quick:
+        logger.info(f"🚀 INICIANDO CAPTURA RÁPIDA DE TESTE - ANO {ANO_FISCAL} (LIMITADA)")
+        limit_inst = 1
+        limit_org = 1
+        limit_elem = 2
+        limit_cred = 2
+        limit_emp = 2
+    else:
+        logger.info(f"🚀 INICIANDO CAPTURA REAL COMPLETA DO PORTAL - ANO {ANO_FISCAL} ({DATA_INICIO} a {DATA_FIM})")
+        logger.info("⚠️ Nota importante: Por se tratar do ano cheio, esta operação pode levar algum tempo.")
+        limit_inst = None
+        limit_org = None
+        limit_elem = None
+        limit_cred = None
+        limit_emp = None
+        
     try:
+        scraper = CampinaGrandeScraper(year=ANO_FISCAL, start_date=DATA_INICIO, end_date=DATA_FIM)
         scraper.scrape_all(
             db_conn,
-            limit_institutions=1, # Only PREFEITURA
-            limit_organs=1,       # Only PMCG
-            limit_elements=2,     # Scrape only 2 expense elements (e.g. Diárias, etc.)
-            limit_credores=2,     # Scrape 2 creditors per element
-            limit_empenhos=2      # Scrape 2 empenhos per creditor
+            limit_institutions=limit_inst,
+            limit_organs=limit_org,
+            limit_elements=limit_elem,
+            limit_credores=limit_cred,
+            limit_empenhos=limit_emp
         )
-        logger.info("Limited dry-run scrape completed successfully!")
-        
-        # Print database quick stats
-        print("\n=== Database Quick Stats ===")
-        cursor = db_conn.cursor()
-        
-        cursor.execute("SELECT COUNT(*) FROM institutions")
-        print(f"Institutions: {cursor.fetchone()[0]}")
-        
-        cursor.execute("SELECT COUNT(*) FROM organs")
-        print(f"Organs: {cursor.fetchone()[0]}")
-        
-        cursor.execute("SELECT COUNT(*) FROM expense_elements")
-        print(f"Expense Elements: {cursor.fetchone()[0]}")
-        
-        cursor.execute("SELECT COUNT(*) FROM creditors")
-        print(f"Creditors: {cursor.fetchone()[0]}")
-        
-        cursor.execute("SELECT COUNT(*) FROM empenhos")
-        print(f"Empenhos (Contracts): {cursor.fetchone()[0]}")
-        
-        cursor.execute("SELECT COUNT(*) FROM movements")
-        print(f"Transaction Movements: {cursor.fetchone()[0]}")
-        
+        logger.info(f"✅ Concluída captura real de produção para o ano fiscal {ANO_FISCAL}!")
     except Exception as e:
-        logger.exception("Scraper encountered an error:")
-    finally:
-        db_conn.close()
+        logger.error(f"❌ Erro crítico durante a captura do ano fiscal {ANO_FISCAL}: {e}")
+        
+    # Exibe sumário estatístico do banco
+    print("\n" + "="*50)
+    print(f"📊 ESTATÍSTICAS DA BASE DE DADOS REAL - ANO {ANO_FISCAL}")
+    print("="*50)
+    cursor = db_conn.cursor()
+    
+    cursor.execute("SELECT COUNT(*) FROM institutions")
+    print(f"  - Instituições Cadastradas:       {cursor.fetchone()[0]}")
+    
+    cursor.execute("SELECT COUNT(*) FROM organs")
+    print(f"  - Órgãos / Secretarias:           {cursor.fetchone()[0]}")
+    
+    cursor.execute("SELECT COUNT(*) FROM expense_elements")
+    print(f"  - Elementos de Despesa:           {cursor.fetchone()[0]}")
+    
+    cursor.execute("SELECT COUNT(*) FROM creditors")
+    print(f"  - Fornecedores (Credores):        {cursor.fetchone()[0]}")
+    
+    cursor.execute("SELECT COUNT(*) FROM empenhos")
+    print(f"  - Empenhos (Contratos):           {cursor.fetchone()[0]}")
+    
+    cursor.execute("SELECT COUNT(*) FROM movements")
+    print(f"  - Transações Financeiras Totais:  {cursor.fetchone()[0]}")
+    
+    cursor.execute("SELECT COUNT(*) FROM scraper_errors")
+    print(f"  - Registros de Erros / Lacunas:   {cursor.fetchone()[0]}")
+    print("="*50)
+    
+    db_conn.close()
+

@@ -194,6 +194,10 @@ def run_audit_queries():
             
     conn.close()
 
-if __name__ == "__main__":
+def test_audit_execution():
+    """Pytest entrypoint to execute the complete contractor seeding and audit validation."""
     setup_test_data()
     run_audit_queries()
+
+if __name__ == "__main__":
+    test_audit_execution()
