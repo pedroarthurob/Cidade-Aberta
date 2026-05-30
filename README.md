@@ -23,7 +23,8 @@ Cidade-Aberta/
     │   └── DATA_AVAILABILITY.md# Dicionário de dados, endpoints JSON e metas de IA
     ├── src/                    # Código Fonte Principal (Engine)
     │   ├── db.py               # Módulo de conexão e definição de tabelas SQL
-    │   └── scraper.py          # Script de automação de raspagem e sessão e-cidade
+    │   ├── scraper.py          # Script de automação de raspagem e sessão e-cidade
+    │   └── ai_auditor.py       # Auditoria de IA (Z-Score de anomalias e semântico LLM Gemini)
     └── tests/                  # Testes e Simulações de Auditoria
         ├── test_scraper_api.py # Casos de teste Pytest (verificação de conexões e API)
         └── test_audit.py       # Simulação prática de cruzamentos SQL (obras inacabadas)
@@ -37,7 +38,7 @@ Cidade-Aberta/
 Certifique-se de ativar o ambiente virtual e ter as dependências instaladas:
 ```bash
 # Para instalar as dependências no ambiente virtual do projeto:
-.venv/bin/pip install requests pytest
+.venv/bin/pip install -r requirements.txt
 ```
 
 ### 2. Executar uma Ingestão de Dados (Scraper)
@@ -59,6 +60,17 @@ Roda as queries relacionais cruzando obras públicas expiradas e empresas super-
 ```bash
 # Executa a auditoria simulada contra o banco de testes:
 .venv/bin/python scrapping/tests/test_audit.py
+```
+
+### 5. Executar a Auditoria com Inteligência Artificial
+Executa o detector de anomalias estatísticas (Z-Score) e o auditor forense semântico baseado no LLM Gemini:
+```bash
+# Para rodar com auditoria forense em modo simulado (local/out-of-the-box):
+.venv/bin/python scrapping/src/ai_auditor.py
+
+# Para habilitar auditoria viva e real com o cérebro da Gemini AI:
+export GEMINI_API_KEY="sua_chave_de_api_aqui"
+.venv/bin/python scrapping/src/ai_auditor.py
 ```
 
 ---
